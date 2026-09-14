@@ -1,6 +1,6 @@
 services:
   backend:
-    image: todo-backend:1.1
+    image: akhilbm/todo-backend:1.1
     container_name: todo-backend
     env_file:
       - .env
@@ -8,7 +8,7 @@ services:
       - todo-data:/app/instance/data
 
   frontend:
-    image: todo-frontend:1.1
+    image: akhilbm/todo-frontend:1.1
     container_name: todo-frontend
     ports:
       - "80:80"
