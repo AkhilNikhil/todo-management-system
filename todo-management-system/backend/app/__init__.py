@@ -1,8 +1,10 @@
 import os
+from dotenv import load_dotenv
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_jwt_extended import JWTManager
 from flask_cors import CORS
+load_dotenv()
 
 db = SQLAlchemy()
 jwt = JWTManager()
@@ -11,11 +13,12 @@ jwt = JWTManager()
 def create_app():
     app = Flask(__name__)
 
-    os.makedirs(os.path.join(app.instance_path, "data"), exist_ok=True)
+    database_url = os.getenv("DATABASE_URL")
 
-    app.config["SQLALCHEMY_DATABASE_URI"] = (
-        "sqlite:///" + os.path.join(app.instance_path, "data", "todo.db")
-    )
+    if not database_url:
+        raise RuntimeError("DATABASE_URL environment variable is not set")
+
+    app.config["SQLALCHEMY_DATABASE_URI"] = database_url
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
     app.config["JWT_SECRET_KEY"] = os.getenv(
@@ -36,8 +39,5 @@ def create_app():
     @app.route("/")
     def home():
         return {"message": "Todo API is running"}
-
-    with app.app_context():
-        db.create_all()
 
     return app
