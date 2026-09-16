@@ -1,102 +1,286 @@
-# My Tasks - Personal Task Manager
 
-A Dockerized full-stack task management application built with React, Flask, SQLite, and Docker.
+# My Tasks – Personal Task Manager
+
+A containerized full-stack task management application built with React, Flask, PostgreSQL, JWT authentication, Docker, and Docker Compose.
+
+The application allows users to register, log in, and manage their own tasks. Each user's tasks are isolated so one user cannot access another user's data.
 
 ## Features
 
 - User registration and login
 - JWT-based authentication
-- Create tasks
-- Mark tasks as completed
-- Undo task completion
-- Delete tasks
-- User-specific task data
-- Dockerized frontend and backend
+- Create, view, update, and delete tasks
+- Mark tasks as completed or incomplete
+- User-specific task isolation
+- PostgreSQL database
+- React frontend with Vite
+- Flask REST API
+- Gunicorn production server
 - Nginx reverse proxy
-- SQLite database
-- Docker named volume for data persistence
-- Docker Hub images
+- Dockerized frontend and backend
+- Docker Compose for local multi-container deployment
+- Docker Hub image publishing
+- Cloud deployment using Render
+- Persistent data using Supabase PostgreSQL
 
 ## Architecture
+
+### Local Docker Architecture
 
 ```text
 Browser
    |
    v
 Frontend Container
-React + Nginx
+React + Vite + Nginx
+Port 80
    |
    | /api
    v
 Backend Container
 Flask + Gunicorn
+Port 5000
    |
    v
-SQLite Database
-   |
-   v
-Docker Named Volume
+Supabase PostgreSQL
 ```
 
-## Tech Stack
+### Cloud Architecture
 
-| Component | Technology |
-|---|---|
-| Frontend | React + Vite |
-| Web Server | Nginx |
-| Backend | Python + Flask |
-| Application Server | Gunicorn |
-| Database | SQLite |
-| Authentication | JWT |
-| Containerization | Docker |
-| Orchestration | Docker Compose |
-| Image Registry | Docker Hub |
+```text
+Browser
+   |
+   v
+Render Frontend Service
+React + Nginx
+   |
+   | HTTPS /api
+   v
+Render Backend Service
+Flask + Gunicorn
+   |
+   | PostgreSQL connection
+   v
+Supabase PostgreSQL
+```
+
+The frontend and backend are independently containerized and deployed as separate services.
+
+## Technology Stack
+
+### Frontend
+
+- React
+- Vite
+- JavaScript
+- HTML
+- CSS
+- Nginx
+
+### Backend
+
+- Python
+- Flask
+- Flask-SQLAlchemy
+- Flask-JWT-Extended
+- Flask-CORS
+- Gunicorn
+
+### Database
+
+- PostgreSQL
+- Supabase
+
+### DevOps
+
+- Docker
+- Docker Compose
+- Docker Hub
+- Git
+- GitHub
+- Render
 
 ## Project Structure
 
 ```text
 todo-management-system/
+│
 ├── backend/
+│   ├── app/
+│   │   ├── __init__.py
+│   │   ├── auth.py
+│   │   ├── models.py
+│   │   └── todos.py
+│   │
+│   ├── Dockerfile
+│   ├── requirements.txt
+│   └── run.py
+│
 ├── frontend/
-├── docs/
-│   ├── architecture.md
-│   ├── api.md
-│   └── deployment.md
+│   ├── src/
+│   │   ├── App.jsx
+│   │   ├── App.css
+│   │   └── main.jsx
+│   │
+│   ├── Dockerfile
+│   ├── nginx.conf
+│   ├── package.json
+│   └── vite.config.js
+│
+├── docker-compose.yml
 ├── .env.example
 ├── .gitignore
-├── docker-compose.yml
 └── README.md
 ```
 
-## Docker Hub Images
+## Backend API
 
-Backend:
+### Authentication
 
-```text
-akhilbm/todo-backend:1.1
+#### Register
+
+```http
+POST /api/auth/register
 ```
 
-Frontend:
+Example request:
 
-```text
-akhilbm/todo-frontend:1.1
+```json
+{
+  "email": "user@example.com",
+  "password": "password123"
+}
 ```
 
-## Environment Configuration
+#### Login
 
-Create a `.env` file in the project root.
+```http
+POST /api/auth/login
+```
+
+Example request:
+
+```json
+{
+  "email": "user@example.com",
+  "password": "password123"
+}
+```
+
+The login endpoint returns a JWT access token.
+
+### Todo APIs
+
+All Todo endpoints require a valid JWT access token.
+
+#### Get Tasks
+
+```http
+GET /api/todos
+```
+
+#### Create Task
+
+```http
+POST /api/todos
+```
+
+Example request:
+
+```json
+{
+  "title": "Learn Docker",
+  "description": "Practice Docker containers"
+}
+```
+
+#### Update Task
+
+```http
+PUT /api/todos/<id>
+```
+
+#### Delete Task
+
+```http
+DELETE /api/todos/<id>
+```
+
+### Authentication Header
+
+Protected API requests use:
+
+```http
+Authorization: Bearer <JWT_TOKEN>
+```
+
+The backend identifies the authenticated user from the JWT token and only returns or modifies that user's tasks.
+
+## Database
+
+The application uses PostgreSQL hosted on Supabase.
+
+### Users Table
+
+```text
+users
+├── id
+├── email
+├── password_hash
+└── created_at
+```
+
+### Todos Table
+
+```text
+todos
+├── id
+├── title
+├── description
+├── completed
+├── user_id
+├── created_at
+└── updated_at
+```
+
+The `user_id` column creates the relationship between users and their tasks.
+
+```text
+User
+  |
+  | 1
+  |
+  | many
+  v
+Todos
+```
+
+A foreign key with `ON DELETE CASCADE` ensures that tasks belonging to a deleted user are also removed.
+
+## Environment Variables
+
+Create a `.env` file inside the `backend` directory for local development.
 
 Example:
 
 ```env
+DATABASE_URL=your-postgresql-connection-string
 JWT_SECRET_KEY=your-secret-key
 ```
 
-Do not commit the `.env` file to Git.
+Do not commit the `.env` file to GitHub.
 
-The repository provides `.env.example` as a template.
+The `.env` file is ignored through `.gitignore`.
 
-## Running the Application
+## Running Locally with Docker Compose
+
+Make sure Docker and Docker Compose are installed.
+
+From the project root:
+
+```bash
+docker compose build
+```
 
 Start the application:
 
@@ -104,30 +288,16 @@ Start the application:
 docker compose up -d
 ```
 
-Check the containers:
+Check running containers:
 
 ```bash
 docker compose ps
 ```
 
-Open the application in a browser:
-
-```text
-http://localhost
-```
-
-## Useful Docker Commands
-
-View logs:
+View all logs:
 
 ```bash
 docker compose logs
-```
-
-View backend logs:
-
-```bash
-docker compose logs backend
 ```
 
 View frontend logs:
@@ -136,10 +306,10 @@ View frontend logs:
 docker compose logs frontend
 ```
 
-Follow logs:
+View backend logs:
 
 ```bash
-docker compose logs -f
+docker compose logs backend
 ```
 
 Stop the application:
@@ -148,57 +318,222 @@ Stop the application:
 docker compose down
 ```
 
-## Authentication and Data Isolation
+The application can then be accessed through:
 
-Users register and log in using their email and password.
+```text
+http://localhost
+```
 
-Passwords are hashed before being stored.
+The backend is not directly exposed to the host. API requests are routed through the Nginx reverse proxy using `/api`.
 
-After successful login, the backend generates a JWT access token.
+## Docker Images
 
-The authenticated user's ID is obtained from the verified JWT.
+The application images are published to Docker Hub.
 
-Tasks are associated with the authenticated user through the `user_id` field.
+### Backend
 
-This ensures that users can access only their own tasks.
+```text
+akhilbm/todo-backend:2.0
+```
+
+### Frontend
+
+```text
+akhilbm/todo-frontend:2.2
+```
+
+The frontend image uses Nginx to serve the React application and proxy `/api` requests to the backend service.
+
+## Docker Compose
+
+Docker Compose runs the frontend and backend as separate containers.
+
+The frontend communicates with the backend through the Docker network.
+
+```text
+Frontend
+   |
+   | /api
+   v
+Backend
+```
+
+The database is hosted externally on Supabase PostgreSQL.
+
+## User Data Isolation
+
+The application implements user-specific task access using JWT authentication.
+
+When a user logs in, the backend generates a JWT token.
+
+For protected requests:
+
+```text
+Browser
+   |
+   | JWT Token
+   v
+Flask Backend
+   |
+   | Identify authenticated user
+   v
+PostgreSQL
+```
+
+Tasks are associated with the authenticated user's `user_id`.
+
+Therefore:
+
+```text
+User 1
+  └── Task A
+  └── Task B
+
+User 2
+  └── Task C
+  └── Task D
+```
+
+User 1 cannot retrieve, modify, or delete User 2's tasks through the application API.
 
 ## Data Persistence
 
-The V1 application uses SQLite.
+PostgreSQL provides persistent storage for application data.
 
-The database is stored at:
+The task data is stored in the external Supabase PostgreSQL database instead of container-local storage.
+
+This means application containers can be restarted or redeployed without losing registered users or tasks.
+
+Persistence was verified by:
+
+1. Creating a user.
+2. Creating tasks.
+3. Restarting the application.
+4. Logging in again.
+5. Confirming that the previously created tasks were still available.
+
+## Cloud Deployment
+
+The application is deployed using separate Render services.
+
+### Backend Service
 
 ```text
-/app/instance/data/todo.db
+Service: todo-backend-v2
+Platform: Render
+Runtime: Docker
+Database: Supabase PostgreSQL
 ```
 
-Docker Compose mounts a named volume called `todo-data` to this location.
+Environment variables configured on Render:
 
-This allows the database to persist when the backend container is recreated.
+```text
+DATABASE_URL
+JWT_SECRET_KEY
+```
 
-## API Documentation
+The backend uses Gunicorn and the Render-provided `PORT` environment variable.
 
-See [API Documentation](docs/api.md).
+### Frontend Service
 
-## Architecture Documentation
+```text
+Service: todo-frontend-v2
+Platform: Render
+Runtime: Docker
+Web Server: Nginx
+```
 
-See [Architecture Documentation](docs/architecture.md).
+The frontend Nginx configuration forwards `/api` requests to the deployed backend service over HTTPS.
 
-## Deployment Documentation
+## Deployment Flow
 
-See [Deployment Guide](docs/deployment.md).
+```text
+Developer
+    |
+    v
+GitHub
+    |
+    v
+Docker Build
+    |
+    v
+Docker Hub
+    |
+    +--------------------+
+    |                    |
+    v                    v
+Backend Image       Frontend Image
+    |                    |
+    v                    v
+Render Backend      Render Frontend
+    |                    |
+    +--------+-----------+
+             |
+             v
+       Supabase PostgreSQL
+```
 
-## V1 Status
+## Testing
 
-V1 is a working Dockerized full-stack task management application.
+The application was tested locally and in the deployed environment.
 
-The following workflow has been tested:
+### Authentication Testing
 
-- Registration
-- Login
-- Add task
-- Complete task
-- Undo task completion
+- User registration
+- User login
+- JWT token generation
+- Protected API access
+- Unauthorized request handling
+
+### Task Testing
+
+- Create task
+- View tasks
+- Update task
+- Mark task completed/incomplete
 - Delete task
-- Logout
-- Login again
+
+### User Isolation Testing
+
+Two separate users were created and tested.
+
+```text
+User 1 → Own tasks only
+User 2 → Own tasks only
+```
+
+A request from User 2 to retrieve tasks returned only User 2's tasks.
+
+### Persistence Testing
+
+Application containers were restarted and previously stored PostgreSQL data remained available.
+
+## Security Considerations
+
+- Passwords are stored as password hashes rather than plain text.
+- JWT authentication protects task APIs.
+- User identity is obtained from the JWT token.
+- Backend does not trust arbitrary user IDs supplied by the frontend.
+- Database credentials are stored using environment variables.
+- `.env` is excluded from Git.
+- Backend is not directly exposed through the frontend deployment.
+- HTTPS is used between the deployed frontend and backend services.
+
+## V2 Status
+
+The V2 implementation includes:
+
+- React frontend
+- Flask backend
+- JWT authentication
+- PostgreSQL database
+- Supabase database hosting
+- User-specific task isolation
+- Docker containerization
+- Docker Compose
+- Docker Hub images
+- Render cloud deployment
+- Persistent database storage
+- Local and cloud testing
+
+**V2 is complete.
