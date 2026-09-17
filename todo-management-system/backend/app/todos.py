@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from app import db
-from app.models import Todo
+from app.models import Todo, User
 
 todos_bp = Blueprint("todos", __name__, url_prefix="/api/todos")
 
@@ -14,15 +14,28 @@ def get_todos():
 
     todos = Todo.query.filter_by(user_id=user_id).all()
 
-    return jsonify([
-        {
+    result = []
+
+    for todo in todos:
+        assigned_by_email = None
+
+        if todo.assigned_by:
+            admin_user = User.query.get(todo.assigned_by)
+
+            if admin_user:
+                assigned_by_email = admin_user.email
+
+        result.append({
             "id": todo.id,
             "title": todo.title,
             "description": todo.description,
-            "completed": todo.completed
-        }
-        for todo in todos
-    ]), 200
+            "priority": todo.priority,
+            "completed": todo.completed,
+            "assigned_by": todo.assigned_by,
+            "assigned_by_email": assigned_by_email
+        })
+
+    return jsonify(result), 200
 
 
 @todos_bp.route("", methods=["POST"])
@@ -35,12 +48,16 @@ def create_todo():
     description = data.get("description")
 
     if not title:
-        return jsonify({"message": "Title is required"}), 400
+        return jsonify({
+            "message": "Title is required"
+        }), 400
 
     todo = Todo(
         title=title,
         description=description,
-        user_id=user_id
+        priority="Medium",
+        user_id=user_id,
+        assigned_by=None
     )
 
     db.session.add(todo)
@@ -52,7 +69,10 @@ def create_todo():
             "id": todo.id,
             "title": todo.title,
             "description": todo.description,
-            "completed": todo.completed
+            "priority": todo.priority,
+            "completed": todo.completed,
+            "assigned_by": None,
+            "assigned_by_email": None
         }
     }), 201
 
@@ -68,7 +88,9 @@ def update_todo(todo_id):
     ).first()
 
     if not todo:
-        return jsonify({"message": "Todo not found"}), 404
+        return jsonify({
+            "message": "Todo not found"
+        }), 404
 
     data = request.get_json()
 
@@ -99,7 +121,9 @@ def delete_todo(todo_id):
     ).first()
 
     if not todo:
-        return jsonify({"message": "Todo not found"}), 404
+        return jsonify({
+            "message": "Todo not found"
+        }), 404
 
     db.session.delete(todo)
     db.session.commit()

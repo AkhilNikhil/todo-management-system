@@ -4,6 +4,7 @@ from flask_jwt_extended import create_access_token
 from app import db
 from app.models import User
 
+
 auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
 
 
@@ -52,5 +53,6 @@ def login():
 
     return jsonify({
         "message": "Login successful",
-        "access_token": access_token
+        "access_token": access_token,
+        "role": user.role
     }), 200

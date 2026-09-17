@@ -1,9 +1,11 @@
 import os
+
 from dotenv import load_dotenv
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_jwt_extended import JWTManager
 from flask_cors import CORS
+
 
 load_dotenv()
 
@@ -33,9 +35,11 @@ def create_app():
 
     from app.auth import auth_bp
     from app.todos import todos_bp
+    from app.admin import admin_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(todos_bp)
+    app.register_blueprint(admin_bp)
 
     @app.route("/")
     def home():
