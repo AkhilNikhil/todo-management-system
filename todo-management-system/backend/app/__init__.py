@@ -4,6 +4,7 @@ from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_jwt_extended import JWTManager
 from flask_cors import CORS
+
 load_dotenv()
 
 db = SQLAlchemy()
@@ -39,5 +40,9 @@ def create_app():
     @app.route("/")
     def home():
         return {"message": "Todo API is running"}
+
+    @app.route("/api/health")
+    def health():
+        return {"status": "healthy"}, 200
 
     return app
