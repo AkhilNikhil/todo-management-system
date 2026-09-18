@@ -4,43 +4,49 @@
 
 My Tasks is a containerized full-stack task management application built using React, Flask, PostgreSQL, Docker, and Docker Compose.
 
-The application is divided into separate frontend and backend services. PostgreSQL is used as the persistent database and is hosted on Supabase.
+The application is divided into separate frontend and backend services. PostgreSQL is used for persistent data storage and is hosted on Supabase.
 
-The application uses JWT authentication to identify users and ensure that each user can access only their own tasks.
+The application uses JWT authentication to identify users and enforce access to protected resources. V3 also introduces Admin and User roles, task priorities, and administrator task assignment.
+
+---
 
 ## Architecture
 
 ### Local Docker Architecture
 
 ```text
-                        Browser
-                           |
-                           v
-                +----------------------+
-                |   Frontend Container |
-                |----------------------|
-                | React + Vite         |
-                | Nginx                |
-                | Port 80              |
-                +----------+-----------+
-                           |
-                           | /api
-                           v
-                +----------------------+
-                |   Backend Container  |
-                |----------------------|
-                | Flask                |
-                | Gunicorn             |
-                | Port 5000            |
-                +----------+-----------+
-                           |
-                           | PostgreSQL
-                           v
-                +----------------------+
-                | Supabase PostgreSQL  |
-                |      Database        |
-                +----------------------+
+                         Browser
+                            |
+                            v
+                 +----------------------+
+                 |   Frontend Container |
+                 |----------------------|
+                 | React + Vite         |
+                 | Nginx                |
+                 | Port 80              |
+                 +----------+-----------+
+                            |
+                            | HTTP API
+                            v
+                 +----------------------+
+                 |   Backend Container  |
+                 |----------------------|
+                 | Flask                |
+                 | Gunicorn             |
+                 | Port 5000            |
+                 +----------+-----------+
+                            |
+                            | PostgreSQL
+                            v
+                 +----------------------+
+                 | Supabase PostgreSQL  |
+                 |      Database        |
+                 +----------------------+
 ```
+
+The frontend and backend run as separate containers under Docker Compose.
+
+The database remains external to the application containers and is hosted on Supabase.
 
 ### Cloud Architecture
 
@@ -49,29 +55,35 @@ The application uses JWT authentication to identify users and ensure that each u
                             |
                             | HTTPS
                             v
-                +------------------------+
-                |   Render Frontend      |
-                |------------------------|
-                | React + Vite           |
-                | Nginx                  |
-                +-----------+------------+
-                            |
-                            | HTTPS /api
-                            v
-                +------------------------+
-                |   Render Backend       |
-                |------------------------|
-                | Flask                  |
-                | Gunicorn               |
-                +-----------+------------+
-                            |
-                            | PostgreSQL
-                            v
-                +------------------------+
-                | Supabase PostgreSQL    |
-                |       Database         |
-                +------------------------+
+                 +------------------------+
+                 |   Render Frontend      |
+                 |------------------------|
+                 | React + Vite           |
+                 | Nginx                  |
+                 +-----------+------------+
+                             |
+                             | HTTPS API requests
+                             v
+                 +------------------------+
+                 |   Render Backend       |
+                 |------------------------|
+                 | Flask                  |
+                 | Gunicorn               |
+                 +-----------+------------+
+                             |
+                             | PostgreSQL
+                             v
+                 +------------------------+
+                 | Supabase PostgreSQL    |
+                 |       Database         |
+                 +------------------------+
 ```
+
+In the V3 cloud deployment, the React frontend communicates directly with the deployed Render backend API over HTTPS.
+
+The frontend and backend are independently containerized and deployed as separate Render services.
+
+---
 
 ## Components
 
@@ -84,10 +96,13 @@ Responsibilities:
 - Display the application interface
 - Handle user registration and login
 - Store the JWT access token
+- Store the authenticated user's role
 - Send authenticated API requests
 - Display the user's tasks
 - Create, update, complete, and delete tasks
-- Communicate with the backend through `/api`
+- Display task priorities
+- Provide the administrator interface for supported admin operations
+- Communicate with the backend API
 
 The frontend is built into static files and served using Nginx.
 
@@ -99,23 +114,10 @@ Responsibilities:
 
 - Serve the React application
 - Handle frontend routes
-- Forward `/api` requests to the Flask backend
-- Provide the entry point for browser requests
+- Provide the HTTP entry point for the frontend container
+- Support the SPA fallback to `index.html`
 
-Local requests follow this flow:
-
-```text
-Browser
-   |
-   v
-Nginx
-   |
-   | /api
-   v
-Flask Backend
-```
-
-In the cloud deployment, Nginx forwards `/api` requests to the deployed Render backend over HTTPS.
+In the V3 cloud architecture, API requests are sent directly from the React application to the Render backend URL over HTTPS. Nginx is not the cloud API gateway.
 
 ### Backend
 
@@ -129,36 +131,131 @@ Responsibilities:
 - Generate JWT access tokens
 - Validate JWT tokens
 - Identify the authenticated user
-- Create and manage tasks
 - Enforce user-specific task access
+- Enforce Admin/User authorization
+- Create and manage tasks
+- Assign tasks to users through admin APIs
+- Return administrative user and task information
 - Communicate with PostgreSQL
 
 Gunicorn is used as the production WSGI server.
 
-### Database
+### Authorization
+
+V3 introduces role-based authorization.
+
+The supported roles are:
+
+```text
+user
+admin
+```
+
+Normal users can access their own task resources.
+
+Administrators can access administrator endpoints for:
+
+- Viewing users
+- Viewing all tasks
+- Assigning tasks to users
+- Testing administrator authorization
+
+The backend checks the authenticated user's role before allowing access to admin endpoints.
+
+---
+
+## Database
 
 The application uses PostgreSQL for persistent data storage.
 
 The PostgreSQL database is hosted on Supabase.
 
-The main tables are:
+### Users Table
 
 ```text
 users
 ├── id
 ├── email
 ├── password_hash
-└── created_at
+├── created_at
+└── role
+```
 
+The `role` field identifies whether the account is a normal user or administrator.
+
+Possible values:
+
+```text
+user
+admin
+```
+
+### Todos Table
+
+```text
 todos
 ├── id
 ├── title
 ├── description
+├── priority
 ├── completed
 ├── user_id
+├── assigned_by
 ├── created_at
 └── updated_at
 ```
+
+The `priority` field supports:
+
+```text
+Low
+Medium
+High
+```
+
+The `user_id` field identifies the user who owns the task.
+
+The `assigned_by` field identifies the administrator who assigned the task. It can be `NULL` for tasks created directly by users.
+
+---
+
+## Database Relationships
+
+```text
+                       users
+                         |
+             +-----------+-----------+
+             |                       |
+             | 1                     | 1
+             v                       v
+        todos.user_id          todos.assigned_by
+             |                       |
+             | many                  | many
+             v                       v
+           todos                   todos
+```
+
+The two relationships have different purposes:
+
+```text
+todos.user_id
+    |
+    +-- Identifies the task owner
+
+todos.assigned_by
+    |
+    +-- Identifies the administrator who assigned the task
+```
+
+The `todos.user_id` foreign key uses `ON DELETE CASCADE`.
+
+If a user is deleted, tasks owned by that user are also deleted.
+
+The `todos.assigned_by` foreign key uses `ON DELETE SET NULL`.
+
+If an administrator who assigned a task is deleted, the task remains but its `assigned_by` value becomes `NULL`.
+
+---
 
 ## Authentication Flow
 
@@ -198,7 +295,7 @@ Flask Backend
    v
 PostgreSQL
    |
-   | User found
+   | User + role
    v
 Flask Backend
    |
@@ -207,49 +304,51 @@ Flask Backend
 Browser
 ```
 
-The frontend stores the JWT access token and sends it with protected API requests.
+The login response contains:
+
+- JWT access token
+- User role
+
+The frontend uses the JWT for protected API requests.
+
+---
 
 ## Protected API Request Flow
 
 ```text
-Browser
-   |
-   | Authorization: Bearer <JWT_TOKEN>
-   v
-Nginx
-   |
-   | /api
-   v
+Browser / React
+      |
+      | Authorization: Bearer <JWT_TOKEN>
+      v
 Flask Backend
-   |
-   | Validate JWT
-   v
+      |
+      | Validate JWT
+      v
 Authenticated User
-   |
-   | user_id
-   v
-PostgreSQL
+      |
+      +----------------------+
+      |                      |
+      | role=user             | role=admin
+      v                      v
+User APIs               Admin APIs
+      |                      |
+      +----------+-----------+
+                 |
+                 v
+          PostgreSQL
 ```
 
 The backend obtains the authenticated user's identity from the verified JWT token.
 
-The backend does not rely on an arbitrary user ID supplied by the frontend.
+The backend uses that identity when querying normal user task resources.
+
+For administrator endpoints, the backend additionally verifies that the authenticated user's role is `admin`.
+
+---
 
 ## Task Data Isolation
 
 Each task is associated with a user through the `user_id` column.
-
-```text
-                    users
-                      |
-                      | 1
-                      |
-                      | many
-                      v
-                    todos
-```
-
-Example:
 
 ```text
 User 1
@@ -263,41 +362,28 @@ User 2
    +-- Task D
 ```
 
-When a user requests their tasks, the backend uses the authenticated user's ID to query the database.
+When a normal user requests their tasks, the backend obtains the user ID from the JWT and queries tasks belonging to that user.
 
-Therefore, a user can only access tasks belonging to their own account.
-
-## Database Relationship
-
-The `todos.user_id` column is a foreign key referencing `users.id`.
+Therefore:
 
 ```text
-users.id
-   |
-   | referenced by
-   v
-todos.user_id
+User 1 → User 1 tasks
+User 2 → User 2 tasks
 ```
 
-The relationship is:
+Normal user task operations do not use an arbitrary user ID supplied by the frontend to determine ownership.
 
-```text
-One User
-   |
-   +---- Many Todos
-```
+Administrators have separate protected endpoints that can view tasks across users and assign tasks.
 
-The foreign key uses `ON DELETE CASCADE`.
-
-If a user is deleted, the tasks associated with that user are also deleted.
+---
 
 ## API Communication
-
-The frontend communicates with the backend using HTTP requests.
 
 The main API routes are:
 
 ```text
+GET    /api/health
+
 POST   /api/auth/register
 POST   /api/auth/login
 
@@ -305,13 +391,36 @@ GET    /api/todos
 POST   /api/todos
 PUT    /api/todos/<id>
 DELETE /api/todos/<id>
+
+GET    /api/admin/test
+GET    /api/admin/users
+GET    /api/admin/tasks
+POST   /api/admin/tasks
 ```
 
-Protected Todo requests include the JWT token in the `Authorization` header.
+Protected requests include the JWT token in the `Authorization` header.
 
 ```http
 Authorization: Bearer <JWT_TOKEN>
 ```
+
+### V3 Cloud API Flow
+
+```text
+React Application
+       |
+       | HTTPS
+       v
+https://todo-backend-3-0-1.onrender.com
+       |
+       v
+Flask + Gunicorn
+       |
+       v
+Supabase PostgreSQL
+```
+
+---
 
 ## Docker Architecture
 
@@ -338,29 +447,31 @@ Frontend Container
 Docker image:
 
 ```text
-akhilbm/todo-frontend:2.2
+akhilbm/todo-frontend:3.1
 ```
 
 ### Backend Image
 
 ```text
 Python Application
-        |
-        v
-      Flask
-        |
-        v
-     Gunicorn
-        |
-        v
+       |
+       v
+     Flask
+       |
+       v
+   Gunicorn
+       |
+       v
 Backend Container
 ```
 
 Docker image:
 
 ```text
-akhilbm/todo-backend:2.0
+akhilbm/todo-backend:3.0
 ```
+
+---
 
 ## Docker Compose Architecture
 
@@ -375,23 +486,24 @@ Docker Compose is used for local development and testing.
 |  | React + Nginx       |  |
 |  +----------+----------+  |
 |             |             |
-|             | /api        |
+|             | HTTP API    |
 |             v             |
 |  +---------------------+  |
 |  | Backend Container   |  |
 |  | Flask + Gunicorn    |  |
 |  +----------+----------+  |
-|             |             |
 +-------------|-------------+
               |
               | PostgreSQL
               v
-      Supabase PostgreSQL
+       Supabase PostgreSQL
 ```
 
-The frontend and backend communicate through the Docker Compose network.
+The frontend and backend run as separate services managed by Docker Compose.
 
 The PostgreSQL database is external to the application containers.
+
+---
 
 ## Data Persistence
 
@@ -399,9 +511,24 @@ Application data is stored in Supabase PostgreSQL.
 
 The database is not stored inside the frontend or backend containers.
 
-Therefore, restarting or recreating the application containers does not remove the registered users or tasks stored in PostgreSQL.
+Therefore:
 
-The database persistence was verified by restarting the application and confirming that previously created data remained available.
+```text
+Container Restart
+       |
+       v
+Application Containers Recreated
+       |
+       v
+Supabase PostgreSQL
+       |
+       v
+Existing Users and Tasks Remain
+```
+
+Database persistence was verified by restarting the application and confirming that previously created users and tasks remained available.
+
+---
 
 ## Cloud Deployment Architecture
 
@@ -419,7 +546,21 @@ Frontend Service
   +-- Nginx
 ```
 
-The frontend service serves the React application and forwards `/api` requests to the backend.
+Frontend service:
+
+```text
+task-management-system
+```
+
+Docker image:
+
+```text
+akhilbm/todo-frontend:3.1
+```
+
+The frontend serves the React application.
+
+For V3 cloud API communication, the React application sends API requests directly to the Render backend over HTTPS.
 
 ### Backend Service
 
@@ -433,7 +574,27 @@ Backend Service
   +-- Gunicorn
 ```
 
+Backend service:
+
+```text
+todo-backend:3.0-1
+```
+
+Docker image:
+
+```text
+akhilbm/todo-backend:3.0
+```
+
 The backend connects to Supabase PostgreSQL using the `DATABASE_URL` environment variable.
+
+Backend health endpoint:
+
+```text
+/api/health
+```
+
+---
 
 ## Environment Configuration
 
@@ -448,9 +609,11 @@ The values are provided locally through the `.env` file and configured separatel
 
 Sensitive credentials are not stored in the Git repository.
 
+---
+
 ## Request Flow
 
-A typical task request follows this flow:
+A typical V3 user task request follows this flow:
 
 ```text
 1. User opens the application
@@ -465,32 +628,39 @@ A typical task request follows this flow:
 4. Backend validates credentials
           |
           v
-5. Backend generates JWT
+5. Backend reads user role
           |
           v
-6. Browser stores JWT
+6. Backend generates JWT
           |
           v
-7. Browser requests /api/todos
+7. Browser stores JWT
           |
           v
-8. Nginx forwards request
+8. React requests /api/todos
           |
           v
-9. Flask validates JWT
+9. Request is sent to Flask Backend
           |
           v
-10. Backend identifies user
+10. Flask validates JWT
           |
           v
-11. PostgreSQL returns user's tasks
+11. Backend identifies authenticated user
           |
           v
-12. Backend returns API response
+12. PostgreSQL returns user's tasks
           |
           v
-13. React displays tasks
+13. Backend returns API response
+          |
+          v
+14. React displays tasks
 ```
+
+An administrator request follows the same authentication flow, followed by an additional role check before an admin endpoint is executed.
+
+---
 
 ## Deployment Flow
 
@@ -520,20 +690,27 @@ Render Backend         Render Frontend
         Supabase PostgreSQL
 ```
 
+---
+
 ## Architecture Summary
 
-The application consists of:
+The V3 application consists of:
 
 - React + Vite frontend
-- Nginx web server and reverse proxy
+- Nginx web server
 - Flask REST API backend
 - Gunicorn application server
 - PostgreSQL database hosted on Supabase
 - JWT-based authentication
+- Admin/User role-based authorization
 - User-specific task isolation
+- Task priority management
+- Administrator task assignment
 - Docker containers
 - Docker Compose for local orchestration
 - Docker Hub for container images
 - Render for cloud deployment
 
-The architecture separates the frontend, backend, and database responsibilities while keeping the application simple enough to develop, test, containerize, and deploy.
+The architecture separates frontend, backend, and database responsibilities while keeping the application simple enough to develop, test, containerize, and deploy.
+
+V3 is currently frozen at this application stage. Future features can be developed in a later version without changing the V3 baseline.

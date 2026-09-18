@@ -1,7 +1,7 @@
 
 import { useEffect, useState } from "react";
 
-const API_URL = "";
+const API_URL = "https://todo-backend-3-0-1.onrender.com";
 
 function App() {
   const [isLogin, setIsLogin] = useState(true);
