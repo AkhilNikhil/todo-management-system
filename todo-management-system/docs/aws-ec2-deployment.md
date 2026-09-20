@@ -22,6 +22,9 @@ The AWS deployment uses one EC2 instance to run the two application containers:
 
 ### AWS EC2 architecture
 
+![AWS EC2 V3 Deployment Architecture](images/aws-ec2/aws-ec2-v3-architecture.png)
+
+
 ```mermaid
 flowchart LR
     U[User / Browser]

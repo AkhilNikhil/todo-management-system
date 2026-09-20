@@ -25,6 +25,9 @@ The frontend and backend are deployed as separate Render services.
 
 ## V3 Cloud Architecture
 
+![Render V3 Deployment Architecture](images/render/render-v3-architecture.png)
+
+
 ```text
                          Browser
                             |
